@@ -97,6 +97,12 @@ License: MIT
           }
         });
 
+  
+        if (res.status === 429) {
+          console.warn("Rate limit hit! Stopping fetch.");
+          break;
+        }
+          
         const repos = await res.json();
 
         if (!repos || repos.length === 0) {
