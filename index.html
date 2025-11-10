@@ -1,0 +1,207 @@
+<!--
+
+repo-graph
+==========
+
+Author:  Giovanni Santini
+Mail:    giovanni.santini@proton.me
+License: MIT
+    
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+  <meta charset="UTF-8" />
+  <title>San7o GitHub Repo Graph</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/force-graph"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      background: #0e0e10;
+      font-family: system-ui;
+      color: white;
+    }
+    
+    #graph {
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform:translate(-50%, -50%);
+      color: #aaa; font-size: 16px;
+    }
+  </style>
+  
+</head>
+
+<body>
+  
+  <div id="loading">Fetching GitHub data for @San7o...</div>
+  <div id="graph"></div>
+
+  <script>
+    // Configuration
+    const username        = "San7o";
+    const backgroundColor = "#0e0e10";
+    const repoColor       = "#60a5fa";
+    const topicColor      = "#34d399";
+    const linkColor       = "rgba(255,255,255,0.5)";
+    const nodeRelSize     = 8;
+    const rootRadius      = 15;
+    const topicRadius     = 9;
+    const repoRadius      = 6;
+
+    // Add topic-to-topic relationships here manually
+    const topicLinks = [
+      { source: "programming", target: "audio" },
+      { source: "programming", target: "games" },
+      { source: "programming", target: "testing" },
+      { source: "programming", target: "rendering" },
+      { source: "programming", target: "linux" },
+      { source: "programming", target: "algorithms" },
+      { source: "programming", target: "data-structures" },
+      { source: "programming", target: "machine-learning" },
+      { source: "programming", target: "cybersecurity" },
+      { source: "programming", target: "kubernetes" },
+      { source: "programming", target: "misc" },
+      { source: "programming", target: "python" },
+      { source: "rendering", target: "games" },
+      { source: "programming", target: "config" },
+      { source: "programming", target: "c" },
+      { source: "programming", target: "cpp" },
+      { source: "programming", target: "lisp" },
+      { source: "programming", target: "rust" },
+      { source: "programming", target: "javascript" },
+      { source: "programming", target: "go" },
+      { source: "linux", target: "ebpf" },
+      { source: "ebpf", target: "observability" },
+    ];
+
+    async function fetchAllRepos(username) {
+      let page = 1;
+      let allRepos = [];
+      let fetchMore = true;
+
+      while (fetchMore) {
+        const res = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&page=${page}`, {
+          headers: {
+            "Accept": "application/vnd.github.mercy-preview+json", // needed for topics
+          }
+        });
+
+        const repos = await res.json();
+
+        if (!repos || repos.length === 0) {
+          fetchMore = false; // no more repos
+        } else {
+          allRepos = allRepos.concat(repos);
+          page++;
+        }
+      }
+
+      return allRepos;
+    }
+
+
+    async function fetchGitHubData() {
+      const repos = await fetchAllRepos(username);
+
+      const nodes = [];
+      const links = [];
+
+      
+      repos.forEach(repo => {
+
+        if (!repo.topics || repo.topics.length === 0) return;
+
+        const repoNode = {
+          id: repo.name,
+          name: repo.name,
+          type: "repo",
+          url: repo.html_url
+        };
+        nodes.push(repoNode);
+
+        if (Array.isArray(repo.topics)) {
+          repo.topics.forEach(topic => {
+            if (!nodes.find(n => n.id === topic)) {
+              nodes.push({ id: topic, name: topic, type: "topic" });
+            }
+            links.push({ source: repo.name, target: topic });
+          });
+        }
+      });
+
+      // Add manual topic–topic links
+      topicLinks.forEach(l => links.push(l));
+
+      return { nodes, links };
+    }
+
+    async function init() {
+      const data = await fetchGitHubData();
+      document.getElementById("loading").style.display = "none";
+
+      const Graph = ForceGraph()(document.getElementById("graph"))
+        .graphData(data)
+        .backgroundColor(backgroundColor)
+        .linkColor(() => linkColor)
+        .nodeRelSize(nodeRelSize)
+        .nodeId("id")
+        .nodeCanvasObject((node, ctx, globalScale) => {
+          const label = node.name;
+          const fontSize = 12 / globalScale;
+          const circleColor = node.type === "repo" ? repoColor : topicColor;
+
+          // Circle
+          ctx.beginPath();
+          var radius;
+          if (node.type === 'topic') {
+            if (node.name === 'programming') {
+                radius = rootRadius;
+            } else {
+                radius = topicRadius;
+            }
+          } else {
+            radius = repoRadius;
+          }
+          ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+          ctx.fillStyle = circleColor;
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = circleColor;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Label
+          ctx.font = `${fontSize}px Sans-Serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.fillText(label, node.x, node.y + 8);
+        })
+        .onNodeClick(node => {
+          if (node.url) window.open(node.url, "_blank");
+        })
+        .onNodeHover(node => {
+          document.body.style.cursor = node ? "pointer" : "default";
+        });
+        
+        // Spread nodes
+        Graph.d3Force('charge').strength(-500);       // stronger repulsion
+        Graph.d3Force('link').distance(300);          // longer links
+        Graph.d3Force('collision', d3.forceCollide().radius(8)); // avoid overlap
+    }
+
+    init();
+  </script>
+</body>
+
+</html>
