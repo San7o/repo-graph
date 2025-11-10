@@ -97,7 +97,10 @@ License: MIT
           }
         });
 
-  
+        if (res.status === 403) {
+          console.warn("Got 403 Forbidden");
+          break;
+
         if (res.status === 429) {
           console.warn("Rate limit hit! Stopping fetch.");
           break;
