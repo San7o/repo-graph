@@ -100,6 +100,7 @@ License: MIT
         if (res.status === 403) {
           console.warn("Got 403 Forbidden");
           break;
+        }
 
         if (res.status === 429) {
           console.warn("Rate limit hit! Stopping fetch.");
@@ -126,7 +127,6 @@ License: MIT
       const nodes = [];
       const links = [];
 
-      
       repos.forEach(repo => {
 
         if (!repo.topics || repo.topics.length === 0) return;
